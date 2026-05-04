@@ -1,7 +1,9 @@
 # JSON Schema Design for Copilot Debug Logs
 
 ## Overview
-This document defines the JSON schema for representing GitHub Copilot Agent Debug Log data. The schema is designed to be flexible and accommodate the OpenTelemetry (OTLP) JSON format used by Copilot's debug logs.
+This document defines the JSON schema for representing GitHub Copilot Agent Debug Log data. The schema is designed to be flexible and accommodate both:
+1. **VS Code Chat Replay Format** (`.chatreplay.json`) - The actual export format from VS Code
+2. **OpenTelemetry (OTLP) JSON Format** - Future format for Agent Debug Log panel exports
 
 ## Design Principles
 1. **Flexibility**: Accommodate variations in log formats and future changes
@@ -10,7 +12,87 @@ This document defines the JSON schema for representing GitHub Copilot Agent Debu
 4. **Traceability**: Maintain relationship between events, sessions, and sub-agents
 5. **Analysis-Ready**: Optimized for statistical analysis and reporting
 
-## Core Schema
+## Input Format: VS Code Chat Replay
+
+### Root Structure
+```json
+{
+  "exportedAt": "string (ISO 8601 timestamp)",
+  "totalPrompts": "integer",
+  "totalLogEntries": "integer",
+  "prompts": [
+    {
+      "prompt": "string",
+      "hasSeen": "boolean",
+      "logCount": "integer",
+      "logs": [...]
+    }
+  ]
+}
+```
+
+### Log Entry Structure (toolCall)
+```json
+{
+  "id": "string",
+  "kind": "toolCall",
+  "tool": "string (tool name)",
+  "args": "string (JSON string)",
+  "time": "string (ISO 8601 timestamp)",
+  "response": ["string"],
+  "thinking": {
+    "id": "string",
+    "text": "string"
+  }
+}
+```
+
+### Log Entry Structure (request)
+```json
+{
+  "id": "string",
+  "kind": "request",
+  "type": "string (e.g., ChatMLSuccess)",
+  "name": "string (e.g., copilotLanguageModelWrapper)",
+  "metadata": {
+    "requestType": "string (ChatCompletions or ChatMessages)",
+    "model": "string (e.g., gpt-4o-mini, claude-sonnet-4.6)",
+    "maxPromptTokens": "integer",
+    "maxResponseTokens": "integer",
+    "location": "integer",
+    "startTime": "string (ISO 8601)",
+    "endTime": "string (ISO 8601)",
+    "duration": "integer (milliseconds)",
+    "ourRequestId": "string (uuid)",
+    "requestId": "string (uuid)",
+    "serverRequestId": "string (uuid)",
+    "timeToFirstToken": "integer (milliseconds)",
+    "usage": {
+      "completion_tokens": "integer",
+      "prompt_tokens": "integer",
+      "total_tokens": "integer",
+      "prompt_tokens_details": {
+        "cached_tokens": "integer"
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": "integer",
+        "accepted_prediction_tokens": "integer",
+        "rejected_prediction_tokens": "integer"
+      }
+    },
+    "tools": [...]
+  },
+  "requestMessages": {
+    "messages": [...]
+  },
+  "response": {
+    "type": "string",
+    "message": [...]
+  }
+}
+```
+
+## Core Schema (Internal Representation)
 
 ### Session Level
 ```json
@@ -22,7 +104,8 @@ This document defines the JSON schema for representing GitHub Copilot Agent Debu
   "duration_ms": "number",
   "agent_type": "string (enum: [copilot_cli, claude_cli, vscode, cloud])",
   "model": "string",
-  "plan_type": "string (enum: [business, enterprise, individual], default: business)"
+  "plan_type": "string (enum: [business, enterprise, individual], default: business)",
+  "exported_at": "string (ISO 8601)"
 }
 ```
 
@@ -62,12 +145,18 @@ This document defines the JSON schema for representing GitHub Copilot Agent Debu
     "file_discovered": "string (optional)",
     "customization_loaded": "string (optional)",
     "model": "string (optional)",
+    "provider": "string (optional)",
+    "request_type": "string (optional)",
+    "request_id": "string (optional)",
+    "time_to_first_token": "number (optional, milliseconds)",
     "tokens": {
       "input": "integer (optional)",
       "output": "integer (optional)",
-      "cached": "integer (optional)"
+      "cached": "integer (optional)",
+      "total": "integer (optional)"
     },
-    "duration_ms": "number (optional)"
+    "duration_ms": "number (optional)",
+    "thinking": "string (optional)"
   }
 }
 ```

@@ -153,3 +153,6 @@ Thumbs.db
 !tests/fixtures/**/*.jsonl
 reports/
 charts/
+report_*/
+report.md
+promp1-*.md

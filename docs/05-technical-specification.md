@@ -343,42 +343,40 @@ class AnalyzeSession:
     def __init__(
         self,
         file_reader: LogFileReader,
+        chatreplay_adapter: ChatReplayAdapter,
         otlp_adapter: OTLPAdapter,
         metrics_calculator: MetricsCalculator,
         cost_calculator: CostCalculator,
         hotspot_detector: HotspotDetector
     ):
-        self.file_reader = file_reader
-        self.adapter = otlp_adapter
-        self.metrics_calculator = metrics_calculator
-        self.cost_calculator = cost_calculator
-        self.hotspot_detector = hotspot_detector
+        """Initialize with dependencies"""
         
-    def execute(
-        self, 
-        file_path: str,
-        config: ParserConfig
-    ) -> ParsedSession:
+    def execute(self, file_path: str) -> ParsedSession:
         """Parse and analyze a session log file"""
         # 1. Read file
         raw_data = self.file_reader.read_file(file_path)
         
-        # 2. Adapt format
-        session = self.adapter.adapt(raw_data)
+        # 2. Detect format
+        format_type = self.file_reader.detect_format(file_path)
         
-        # 3. Calculate metrics
-        metrics = self.metrics_calculator.calculate_session_metrics(
-            session.events, session.session
-        )
+        # 3. Adapt format
+        if format_type == "chatreplay":
+            session, events = self.chatreplay_adapter.adapt(raw_data)
+        else:
+            session, events = self.otlp_adapter.adapt([raw_data])
         
-        # 4. Calculate costs
+        # 4. Calculate metrics
+        metrics = self.metrics_calculator.calculate_session_metrics(events, session)
+        
+        # 5. Calculate costs
         costs = self.cost_calculator.calculate_total_cost(session)
         
-        # 5. Detect hotspots
+        # 6. Detect hotspots
         hotspots = self.hotspot_detector.detect_hotspots(session.events)
         
         return ParsedSession(
             session=session,
+            events=events,
             metrics=metrics,
             costs=costs,
             hotspots=hotspots
@@ -409,25 +407,39 @@ class LogFileReader:
                 yield data
 ```
 
+#### ChatReplay Adapter
+```python
+class ChatReplayAdapter:
+    def adapt(self, chatreplay_data: Dict) -> Tuple[Session, List[Event]]:
+        """Transform ChatReplay data to internal session model"""
+        session = self._extract_session_info(chatreplay_data)
+        
+        events = []
+        prompts = chatreplay_data.get('prompts', [])
+        for prompt_data in prompts:
+            prompt_events = self._extract_events_from_prompt(prompt_data)
+            events.extend(prompt_events)
+        
+        events.sort(key=lambda e: e.timestamp)
+        return session, events
+```
+
 #### OTLP Adapter
 ```python
 class OTLPAdapter:
-    def adapt(self, otlp_data: List[Dict]) -> InternalSession:
+    def adapt(self, otlp_data: List[Dict]) -> Tuple[Session, List[Event]]:
         """Transform OTLP data to internal session model"""
         resource_spans = otlp_data[0].get('resourceSpans', [])
         
         # Extract session info from resource
         resource = resource_spans[0].get('resource', {})
-        session_info = self._extract_session_info(resource)
+        session = self._extract_session_info(resource)
         
         # Extract events from spans
         spans = resource_spans[0].get('scopeSpans', [{}])[0].get('spans', [])
         events = [self._adapt_span(span) for span in spans]
         
-        return InternalSession(
-            session=session_info,
-            events=events
-        )
+        return session, events
 ```
 
 #### Chart Generator

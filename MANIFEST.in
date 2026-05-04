@@ -1,0 +1,1 @@
+include src/copilot_usage_analyser/config/pricing/*.yaml

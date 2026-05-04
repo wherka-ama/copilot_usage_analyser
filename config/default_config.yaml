@@ -1,9 +1,0 @@
-# Default configuration for Copilot Usage Analyzer
-
-plan_type: business
-hotspot_threshold_std_dev: 2.0
-include_charts: true
-chart_format: png
-include_raw_data: false
-report_type: detailed
-output_format: markdown

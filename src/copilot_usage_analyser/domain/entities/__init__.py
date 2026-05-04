@@ -1,8 +1,8 @@
 """Domain entities - Core business objects."""
 
-from .session import Session, AgentType, PlanType
+from .metrics import ContextOverheadStats, Hotspot, HotspotSeverity, HotspotType, ModelTokenUsage, SessionMetrics, ToolRegistrationInfo, ToolUsageStats
+from .session import AgentType, PlanType, Session
 from .event import Event, EventType, TokenUsage
-from .metrics import SessionMetrics, ModelTokenUsage, ToolUsageStats, Hotspot
 
 __all__ = [
     "Session",
@@ -15,4 +15,8 @@ __all__ = [
     "ModelTokenUsage",
     "ToolUsageStats",
     "Hotspot",
+    "HotspotSeverity",
+    "HotspotType",
+    "ContextOverheadStats",
+    "ToolRegistrationInfo",
 ]

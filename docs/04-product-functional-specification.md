@@ -27,16 +27,19 @@ A command-line tool that analyzes GitHub Copilot Agent Debug Logs to understand 
 **Priority**: High
 
 The system shall:
-- Accept GitHub Copilot Agent Debug Log files in OTLP JSON/JSONL format
+- Accept GitHub Copilot Chat Replay files (`.chatreplay.json`) from VS Code
+- Accept GitHub Copilot Agent Debug Log files in OTLP JSON format (future)
+- Auto-detect log file format
 - Support single file and batch directory processing
 - Handle files up to 100MB in size
 - Validate file format and structure
 - Provide clear error messages for invalid files
 
 **Acceptance Criteria**:
-- Given a valid OTLP JSON file, the parser successfully extracts all session data
+- Given a valid ChatReplay JSON file, the parser successfully extracts all session data
 - Given an invalid file format, the system reports a clear error with line number
 - Given a directory with multiple log files, the system processes all files
+- Format detection correctly identifies ChatReplay vs OTLP format
 
 ### FR-2: Session Analysis
 **Priority**: High

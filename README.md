@@ -21,8 +21,8 @@ pip install copilot-usage-analyser
 
 ### From Source
 ```bash
-git clone https://github.com/yourusername/copilot-usage-analyser
-cd copilot-usage-analyser
+git clone https://github.com/Amadeus-xDLC/github.copilot-usage-analyser.git
+cd github.copilot-usage-analyser
 pip install -e .
 ```
 

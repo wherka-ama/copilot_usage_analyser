@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, List
 from uuid import UUID, uuid4
 
-from ..domain.entities import AgentType, Event, EventType, PlanType, Session, TokenUsage
+from ...domain.entities import AgentType, Event, EventType, PlanType, Session, TokenUsage
 
 
 class OTLPAdapter:
@@ -135,14 +135,25 @@ class OTLPAdapter:
     def _parse_timestamp(self, value: Any) -> datetime:
         """Parse a timestamp from various formats."""
         if isinstance(value, datetime):
+            # Make naive if it's timezone-aware
+            if value.tzinfo is not None:
+                return value.replace(tzinfo=None)
             return value
-        if isinstance(value, (int, float)):
-            # Unix timestamp in nanoseconds
-            return datetime.fromtimestamp(value / 1_000_000_000)
         if isinstance(value, str):
             try:
+                # Try Unix nano timestamp
+                dt = datetime.fromtimestamp(int(value) / 1e9)
+                if dt.tzinfo is not None:
+                    return dt.replace(tzinfo=None)
+                return dt
+            except (ValueError, TypeError):
+                pass
+            try:
                 # Try ISO format
-                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+                dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                if dt.tzinfo is not None:
+                    return dt.replace(tzinfo=None)
+                return dt
             except ValueError:
                 pass
         return datetime.utcnow()

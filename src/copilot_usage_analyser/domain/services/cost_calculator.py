@@ -24,18 +24,41 @@ class CostCalculator:
 
         input_cost = (event.token_usage.input / 1_000_000) * model_pricing.input_per_million
         output_cost = (event.token_usage.output / 1_000_000) * model_pricing.output_per_million
-        cached_read_cost = (
-            (event.token_usage.cached / 1_000_000) * model_pricing.cached_read_per_million
-        )
-        cached_write_cost = (
-            (event.token_usage.cached / 1_000_000) * model_pricing.cached_write_per_million
-        )
+        
+        # Calculate cached cost based on provider
+        # OpenAI: Single cached token cost (not separate read/write)
+        # Anthropic: Separate cache read and cache write costs
+        if provider.lower() == "openai":
+            # OpenAI uses a single cached cost
+            cached_cost = (
+                (event.token_usage.cached / 1_000_000) * model_pricing.cached_read_per_million
+            )
+        elif provider.lower() == "anthropic":
+            # Anthropic has separate cache read and cache write costs
+            # Since we only have a single cached token count, we need to make an assumption
+            # or the data should be structured differently. For now, we'll apply both costs
+            # to the cached token count, but this may overestimate if the data doesn't
+            # distinguish between read and write.
+            # NOTE: The current data structure doesn't distinguish between cached read vs write,
+            # so this calculation may need adjustment when the data structure is updated.
+            cached_read_cost = (
+                (event.token_usage.cached / 1_000_000) * model_pricing.cached_read_per_million
+            )
+            cached_write_cost = (
+                (event.token_usage.cached / 1_000_000) * model_pricing.cached_write_per_million
+            )
+            cached_cost = cached_read_cost + cached_write_cost
+        else:
+            # Default to single cached cost for other providers
+            cached_cost = (
+                (event.token_usage.cached / 1_000_000) * model_pricing.cached_read_per_million
+            )
 
-        return input_cost + output_cost + cached_read_cost + cached_write_cost
+        return input_cost + output_cost + cached_cost
 
     def calculate_session_cost(self, events: List[Event]) -> float:
         """Calculate total cost for a session."""
-        return sum(self.calculate_event_cost(event) for event in events)
+        return round(sum(self.calculate_event_cost(event) for event in events), 4)
 
     def calculate_credits(self, cost_usd: float) -> int:
         """Convert USD to AI credits."""
@@ -51,13 +74,33 @@ class CostCalculator:
                 output_cost = (
                     (usage.total_output_tokens / 1_000_000) * model_pricing.output_per_million
                 )
-                cached_read_cost = (
-                    (usage.total_cached_tokens / 1_000_000) * model_pricing.cached_read_per_million
-                )
-                cached_write_cost = (
-                    (usage.total_cached_tokens / 1_000_000) * model_pricing.cached_write_per_million
-                )
-                total_cost = input_cost + output_cost + cached_read_cost + cached_write_cost
+                
+                # Calculate cached cost based on provider
+                # OpenAI: Single cached token cost (not separate read/write)
+                # Anthropic: Separate cache read and cache write costs
+                if usage.provider.lower() == "openai":
+                    # OpenAI uses a single cached cost
+                    cached_cost = (
+                        (usage.total_cached_tokens / 1_000_000) * model_pricing.cached_read_per_million
+                    )
+                elif usage.provider.lower() == "anthropic":
+                    # Anthropic has separate cache read and cache write costs
+                    # NOTE: The current data structure doesn't distinguish between cached read vs write,
+                    # so this calculation may need adjustment when the data structure is updated.
+                    cached_read_cost = (
+                        (usage.total_cached_tokens / 1_000_000) * model_pricing.cached_read_per_million
+                    )
+                    cached_write_cost = (
+                        (usage.total_cached_tokens / 1_000_000) * model_pricing.cached_write_per_million
+                    )
+                    cached_cost = cached_read_cost + cached_write_cost
+                else:
+                    # Default to single cached cost for other providers
+                    cached_cost = (
+                        (usage.total_cached_tokens / 1_000_000) * model_pricing.cached_read_per_million
+                    )
+                
+                total_cost = input_cost + output_cost + cached_cost
 
                 updated.append(
                     ModelTokenUsage(
@@ -67,7 +110,7 @@ class CostCalculator:
                         total_output_tokens=usage.total_output_tokens,
                         total_cached_tokens=usage.total_cached_tokens,
                         total_requests=usage.total_requests,
-                        estimated_cost_usd=total_cost,
+                        estimated_cost_usd=round(total_cost, 4),
                     )
                 )
             else:

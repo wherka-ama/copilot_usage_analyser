@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 
@@ -90,3 +90,66 @@ class Hotspot:
     task_description: Optional[str] = None
     model_used: Optional[str] = None
     timestamp: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ToolRegistrationInfo:
+    """Information about a tool registered in the context (available but not necessarily invoked)."""
+
+    name: str
+    category: str
+    mcp_server: Optional[str]
+    definition_tokens_est: int
+    invocation_count: int
+
+    @property
+    def was_invoked(self) -> bool:
+        """Whether this tool was invoked at least once."""
+        return self.invocation_count > 0
+
+
+@dataclass(frozen=True)
+class ContextOverheadStats:
+    """Statistics about context token overhead per session."""
+
+    total_requests: int
+    avg_prompt_tokens: int
+    system_prompt_tokens_est: int
+    custom_instructions_tokens_est: int
+    builtin_tool_tokens_est: int
+    mcp_tool_tokens_est: int
+    activator_tool_tokens_est: int
+    registered_tools: List[ToolRegistrationInfo]
+
+    @property
+    def total_tool_tokens_est(self) -> int:
+        """Total estimated tokens consumed by all tool definitions."""
+        return self.builtin_tool_tokens_est + self.mcp_tool_tokens_est + self.activator_tool_tokens_est
+
+    @property
+    def total_overhead_tokens_est(self) -> int:
+        """Total estimated overhead tokens (system prompt + tools) per request."""
+        return self.system_prompt_tokens_est + self.total_tool_tokens_est
+
+    @property
+    def mcp_tools_never_invoked(self) -> List[ToolRegistrationInfo]:
+        """MCP tools that were registered but never used."""
+        return [t for t in self.registered_tools if t.category == "mcp" and not t.was_invoked]
+
+    @property
+    def mcp_never_invoked_tokens_est(self) -> int:
+        """Estimated tokens wasted on MCP tools that were never invoked."""
+        return sum(t.definition_tokens_est for t in self.mcp_tools_never_invoked)
+
+    @property
+    def potential_savings_tokens(self) -> int:
+        """Estimated total token savings if all never-invoked MCP tools were removed."""
+        return self.mcp_never_invoked_tokens_est * self.total_requests
+
+    @property
+    def tools_by_category(self) -> Dict[str, List[ToolRegistrationInfo]]:
+        """Group registered tools by category."""
+        result: Dict[str, List[ToolRegistrationInfo]] = {}
+        for tool in self.registered_tools:
+            result.setdefault(tool.category, []).append(tool)
+        return result

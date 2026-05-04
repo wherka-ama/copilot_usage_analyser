@@ -1,12 +1,12 @@
 """Use case for analyzing a Copilot session."""
 
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import List, Optional
 
-from ..domain.entities import Hotspot, ModelTokenUsage, Session, SessionMetrics, ToolUsageStats
-from ..domain.services import CostCalculator, HotspotDetector, MetricsCalculator
-from ..infrastructure.adapters import OTLPAdapter
-from ..infrastructure.readers import LogFileReader
+from ...domain.entities import ContextOverheadStats, Hotspot, ModelTokenUsage, Session, SessionMetrics, ToolUsageStats
+from ...domain.services import CostCalculator, HotspotDetector, MetricsCalculator
+from ...infrastructure.adapters import ChatReplayAdapter, OTLPAdapter
+from ...infrastructure.readers import LogFileReader
 
 
 @dataclass
@@ -21,6 +21,7 @@ class ParsedSession:
     hotspots: List[Hotspot]
     total_cost_usd: float
     total_credits: int
+    context_overhead: Optional[ContextOverheadStats] = None
 
 
 class AnalyzeSession:
@@ -29,6 +30,7 @@ class AnalyzeSession:
     def __init__(
         self,
         file_reader: LogFileReader,
+        chatreplay_adapter: ChatReplayAdapter,
         otlp_adapter: OTLPAdapter,
         metrics_calculator: MetricsCalculator,
         cost_calculator: CostCalculator,
@@ -36,7 +38,8 @@ class AnalyzeSession:
     ):
         """Initialize with dependencies."""
         self.file_reader = file_reader
-        self.adapter = otlp_adapter
+        self.chatreplay_adapter = chatreplay_adapter
+        self.otlp_adapter = otlp_adapter
         self.metrics_calculator = metrics_calculator
         self.cost_calculator = cost_calculator
         self.hotspot_detector = hotspot_detector
@@ -44,26 +47,34 @@ class AnalyzeSession:
     def execute(self, file_path: str) -> ParsedSession:
         """Parse and analyze a session log file."""
         # 1. Read file
-        raw_data = list(self.file_reader.read_file(file_path))
+        raw_data = self.file_reader.read_file(file_path)
 
-        # 2. Adapt format
-        session, events = self.adapter.adapt(raw_data)
+        # 2. Detect format
+        format_type = self.file_reader.detect_format(file_path)
 
-        # 3. Calculate metrics
+        # 3. Adapt format
+        context_overhead = None
+        if format_type == "chatreplay":
+            session, events = self.chatreplay_adapter.adapt(raw_data)
+            context_overhead = self.chatreplay_adapter.extract_overhead_data(raw_data)
+        else:  # otlp or default
+            session, events = self.otlp_adapter.adapt([raw_data])
+
+        # 4. Calculate metrics
         metrics = self.metrics_calculator.calculate_session_metrics(events, session)
 
-        # 4. Calculate model usage
+        # 5. Calculate model usage
         model_usage = self.metrics_calculator.calculate_token_usage_by_model(events)
         model_usage = self.cost_calculator.update_model_costs(model_usage)
 
-        # 5. Calculate tool usage
+        # 6. Calculate tool usage
         tool_usage = self.metrics_calculator.calculate_tool_usage(events)
 
-        # 6. Calculate total cost
+        # 7. Calculate total cost
         total_cost_usd = self.cost_calculator.calculate_session_cost(events)
         total_credits = self.cost_calculator.calculate_credits(total_cost_usd)
 
-        # 7. Detect hotspots
+        # 8. Detect hotspots
         hotspots = self.hotspot_detector.detect_hotspots(events)
 
         return ParsedSession(
@@ -75,4 +86,5 @@ class AnalyzeSession:
             hotspots=hotspots,
             total_cost_usd=total_cost_usd,
             total_credits=total_credits,
+            context_overhead=context_overhead,
         )

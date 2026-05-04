@@ -1,7 +1,7 @@
 # Parser Specification for Copilot Debug Logs
 
 ## Overview
-This document specifies the design and behavior of the parser that extracts and transforms GitHub Copilot Agent Debug Logs from OpenTelemetry (OTLP) JSON format into the standardized schema defined in the JSON Schema Design document.
+This document specifies the design and behavior of the parser that extracts and transforms GitHub Copilot Agent Debug Logs into the standardized schema defined in the JSON Schema Design document.
 
 ## Architecture
 The parser follows hexagonal architecture principles with clear separation of concerns:
@@ -12,16 +12,23 @@ The parser follows hexagonal architecture principles with clear separation of co
 
 ## Input Formats
 
-### Primary Format: OTLP JSON (JSONL)
-The parser supports OpenTelemetry JSON format exported from VS Code Agent Debug Log panel.
+### Primary Format: VS Code Chat Replay (`.chatreplay.json`)
+The parser supports VS Code Chat Replay format exported from VS Code.
+- File extension: `.json`
+- Format: Single JSON object with nested structure
+- Structure: `exportedAt`, `totalPrompts`, `totalLogEntries`, `prompts` array
+
+### Secondary Format: OTLP JSON (JSONL)
+The parser supports OpenTelemetry JSON format exported from VS Code Agent Debug Log panel (future).
 - File extension: `.jsonl` or `.json`
 - Format: JSON Lines (one JSON object per line) or single JSON array
 - Structure: `resourceSpans` array with span data
 
 ### Supported Variations
-1. **Single JSON file**: Complete OTLP export with all spans
-2. **JSONL file**: Line-delimited JSON with one span per line
-3. **Multiple files**: Batch processing of multiple session files
+1. **Single ChatReplay file**: Complete VS Code chat replay export
+2. **Single OTLP file**: Complete OTLP export with all spans
+3. **JSONL file**: Line-delimited JSON with one span per line (OTLP)
+4. **Multiple files**: Batch processing of multiple session files
 
 ## Parser Components
 
@@ -31,8 +38,11 @@ The parser supports OpenTelemetry JSON format exported from VS Code Agent Debug 
 **Interface**:
 ```python
 class LogFileReader:
-    def read_file(self, file_path: str) -> Iterator[Dict]:
-        """Read log file and yield JSON objects"""
+    def read_file(self, file_path: str) -> Dict:
+        """Read log file and return JSON data"""
+        
+    def detect_format(self, file_path: str) -> str:
+        """Detect log file format (chatreplay or otlp)"""
         
     def read_directory(self, directory_path: str) -> Iterator[Tuple[str, Dict]]:
         """Read all log files in directory"""
@@ -43,16 +53,40 @@ class LogFileReader:
 - Invalid JSON: Raise `ParseError` with line number and context
 - Permission denied: Raise `PermissionError`
 
-### 2. OTLP Adapter (Infrastructure Layer)
+### 2. ChatReplay Adapter (Infrastructure Layer)
+**Responsibility**: Transform VS Code ChatReplay format to internal domain model
+
+**Interface**:
+```python
+class ChatReplayAdapter:
+    def adapt(self, chatreplay_data: Dict) -> Tuple[Session, List[Event]]:
+        """Transform ChatReplay data to internal session and events"""
+        
+    def extract_session_info(self, data: Dict) -> Session:
+        """Extract session metadata from ChatReplay root"""
+        
+    def extract_events_from_prompt(self, prompt_data: Dict) -> List[Event]:
+        """Extract events from a single prompt"""
+```
+
+**Mapping Rules**:
+- ChatReplay `exportedAt` → Session metadata
+- ChatReplay `prompts` → Event groups
+- ChatReplay `logs` with `kind=toolCall` → Tool call events
+- ChatReplay `logs` with `kind=request` → Model turn events
+- ChatReplay `metadata.usage` → Token usage
+- ChatReplay `metadata.model` → Model information
+
+### 3. OTLP Adapter (Infrastructure Layer)
 **Responsibility**: Transform OTLP format to internal domain model
 
 **Interface**:
 ```python
 class OTLPAdapter:
-    def adapt(self, otlp_data: Dict) -> InternalSession:
-        """Transform OTLP data to internal session model"""
+    def adapt(self, otlp_data: List[Dict]) -> Tuple[Session, List[Event]]:
+        """Transform OTLP data to internal session and events"""
         
-    def extract_session_info(self, resource: Dict) -> SessionInfo:
+    def extract_session_info(self, resource: Dict) -> Session:
         """Extract session metadata from resource attributes"""
         
     def extract_events(self, spans: List[Dict]) -> List[Event]:
@@ -142,28 +176,26 @@ class CostCalculator:
 
 ### Main Parser Orchestration (Application Layer)
 ```python
-class LogParser:
-    def __init__(self, reader: LogFileReader, adapter: OTLPAdapter, 
-                 event_parser: EventParser, metrics_calculator: MetricsCalculator,
-                 cost_calculator: CostCalculator):
+class AnalyzeSession:
+    def __init__(self, reader: LogFileReader, chatreplay_adapter: ChatReplayAdapter,
+                 otlp_adapter: OTLPAdapter, metrics_calculator: MetricsCalculator,
+                 cost_calculator: CostCalculator, hotspot_detector: HotspotDetector):
         """Initialize parser with dependencies"""
         
-    def parse_file(self, file_path: str, config: ParserConfig) -> ParsedSession:
-        """Parse single log file"""
-        
-    def parse_directory(self, directory_path: str, config: ParserConfig) -> List[ParsedSession]:
-        """Parse all log files in directory"""
+    def execute(self, file_path: str) -> ParsedSession:
+        """Parse and analyze single log file"""
 ```
 
 ### Pipeline Steps
-1. **Read File**: Load raw JSON/JSONL data
-2. **Adapt Format**: Transform OTLP to internal model
-3. **Parse Events**: Extract structured data from each event
-4. **Calculate Metrics**: Compute aggregate statistics
-5. **Calculate Costs**: Estimate costs based on usage
-6. **Detect Hotspots**: Identify anomalous usage patterns
-7. **Validate**: Ensure data consistency and completeness
-8. **Return**: Return standardized ParsedSession object
+1. **Read File**: Load raw JSON data
+2. **Detect Format**: Determine if ChatReplay or OTLP format
+3. **Adapt Format**: Transform to internal model using appropriate adapter
+4. **Parse Events**: Extract structured data from each event
+5. **Calculate Metrics**: Compute aggregate statistics
+6. **Calculate Costs**: Estimate costs based on usage
+7. **Detect Hotspots**: Identify anomalous usage patterns
+8. **Validate**: Ensure data consistency and completeness
+9. **Return**: Return standardized ParsedSession object
 
 ## Error Handling Strategy
 
