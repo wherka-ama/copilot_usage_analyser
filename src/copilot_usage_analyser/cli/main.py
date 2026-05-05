@@ -3,7 +3,7 @@
 import click
 from rich.console import Console
 
-from copilot_usage_analyser.application.use_cases import AnalyzeSession, GenerateReport, ReportConfig
+from copilot_usage_analyser.application.use_cases import AnalyzeSession, ExportCSV, GenerateReport, ReportConfig
 from copilot_usage_analyser.domain.services import CostCalculator, HotspotDetector, MetricsCalculator
 from copilot_usage_analyser.domain.value_objects import PricingConfig
 from copilot_usage_analyser.infrastructure.adapters import ChatReplayAdapter, OTLPAdapter
@@ -105,12 +105,22 @@ def cli():
     help="Disable chart generation",
 )
 @click.option(
+    "--csv",
+    is_flag=True,
+    help="Export detailed token usage to CSV file",
+)
+@click.option(
+    "--timeline",
+    is_flag=True,
+    help="Generate timeline chart showing token usage over time",
+)
+@click.option(
     "-v",
     "--verbose",
     is_flag=True,
     help="Verbose output",
 )
-def analyze(file, output, type, format, plan, config, no_charts, verbose):
+def analyze(file, output, type, format, plan, config, no_charts, csv, timeline, verbose):
     """Analyze a Copilot debug log file and generate a report."""
     if verbose:
         console.print(f"[bold blue]Analyzing file:[/bold blue] {file}")
@@ -252,6 +262,56 @@ def analyze(file, output, type, format, plan, config, no_charts, verbose):
         console.print(f"[bold red]Error generating report:[/bold red] {e}")
         raise click.ClickException(str(e))
 
+    # Generate CSV export if requested
+    if csv:
+        export_use_case = ExportCSV(cost_calculator=cost_calculator)
+        try:
+            with console.status("[bold green]Generating CSV export..."):
+                csv_content = export_use_case.execute(
+                    session=parsed_session.session,
+                    events=parsed_session.events,
+                    model_usage=parsed_session.model_usage,
+                    tool_usage=parsed_session.tool_usage,
+                    hotspots=parsed_session.hotspots,
+                    total_cost_usd=parsed_session.total_cost_usd,
+                    pricing_config=pricing_config,
+                    context_overhead=parsed_session.context_overhead,
+                )
+            
+            # Determine CSV output path
+            if output:
+                if output.endswith(".md"):
+                    csv_path = output.replace(".md", ".csv")
+                else:
+                    csv_path = f"{output}/token_usage.csv"
+            else:
+                csv_path = "token_usage.csv"
+            
+            with open(csv_path, "w", encoding="utf-8") as f:
+                f.write(csv_content)
+            
+            console.print(f"[bold green]✓[/bold green] CSV export generated: {csv_path}")
+        
+        except Exception as e:
+            console.print(f"[bold red]Error generating CSV export:[/bold red] {e}")
+            raise click.ClickException(str(e))
+
+    # Generate timeline chart if requested
+    if timeline:
+        try:
+            with console.status("[bold green]Generating timeline chart..."):
+                timeline_path = chart_generator.generate_timeline_chart(
+                    events=parsed_session.events,
+                    title="Token Usage Timeline",
+                    filename="token_usage_timeline.png",
+                )
+            
+            console.print(f"[bold green]✓[/bold green] Timeline chart generated: {timeline_path}")
+        
+        except Exception as e:
+            console.print(f"[bold red]Error generating timeline chart:[/bold red] {e}")
+            raise click.ClickException(str(e))
+
 
 @cli.command()
 @click.argument("directory", type=click.Path(exists=True, file_okay=False))
@@ -275,12 +335,22 @@ def analyze(file, output, type, format, plan, config, no_charts, verbose):
     help="Disable chart generation",
 )
 @click.option(
+    "--csv",
+    is_flag=True,
+    help="Export detailed token usage to CSV file",
+)
+@click.option(
+    "--timeline",
+    is_flag=True,
+    help="Generate timeline chart showing token usage over time",
+)
+@click.option(
     "-v",
     "--verbose",
     is_flag=True,
     help="Verbose output",
 )
-def batch(directory, output, plan, no_charts, verbose):
+def batch(directory, output, plan, no_charts, csv, timeline, verbose):
     """Batch analyze all log files in a directory and aggregate into a single report with deduplication."""
     console.print(f"[bold blue]Batch analyzing directory:[/bold blue] {directory}")
 
@@ -483,6 +553,52 @@ def batch(directory, output, plan, no_charts, verbose):
     console.print(f"[bold green]✓[/bold green] Report generated: {output_path}")
     console.print(f"[bold]Total unique events:[/bold] {len(all_events)}")
     console.print(f"[bold]Total cost:[/bold] ${total_cost_usd:.4f} USD ({total_credits} credits)")
+
+    # Generate CSV export if requested
+    if csv:
+        export_use_case = ExportCSV(cost_calculator=cost_calculator)
+        try:
+            with console.status("[bold green]Generating CSV export..."):
+                csv_content = export_use_case.execute(
+                    session=aggregated_session,
+                    events=all_events,
+                    model_usage=model_usage,
+                    tool_usage=tool_usage,
+                    hotspots=hotspots,
+                    total_cost_usd=total_cost_usd,
+                    pricing_config=pricing_config,
+                    context_overhead=merged_overhead,
+                )
+            
+            csv_path = os.path.join(output, "token_usage.csv")
+            with open(csv_path, "w", encoding="utf-8") as f:
+                f.write(csv_content)
+            
+            console.print(f"[bold green]✓[/bold green] CSV export generated: {csv_path}")
+        
+        except Exception as e:
+            console.print(f"[bold red]Error generating CSV export:[/bold red] {e}")
+            if verbose:
+                import traceback
+                console.print(traceback.format_exc())
+
+    # Generate timeline chart if requested
+    if timeline:
+        try:
+            with console.status("[bold green]Generating timeline chart..."):
+                timeline_path = chart_generator.generate_timeline_chart(
+                    events=all_events,
+                    title="Token Usage Timeline",
+                    filename="token_usage_timeline.png",
+                )
+            
+            console.print(f"[bold green]✓[/bold green] Timeline chart generated: {timeline_path}")
+        
+        except Exception as e:
+            console.print(f"[bold red]Error generating timeline chart:[/bold red] {e}")
+            if verbose:
+                import traceback
+                console.print(traceback.format_exc())
 
 
 if __name__ == "__main__":
