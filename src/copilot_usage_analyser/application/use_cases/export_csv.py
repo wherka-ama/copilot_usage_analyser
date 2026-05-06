@@ -42,6 +42,7 @@ class ExportCSV:
             "provider",
             "input_tokens",
             "output_tokens",
+            "reasoning_tokens",
             "cached_tokens",
             "total_tokens",
             "cost_usd",
@@ -61,6 +62,7 @@ class ExportCSV:
             
             input_tokens = event.token_usage.input if event.token_usage else 0
             output_tokens = event.token_usage.output if event.token_usage else 0
+            reasoning_tokens = event.token_usage.reasoning if event.token_usage else 0
             cached_tokens = event.token_usage.cached if event.token_usage else 0
             total_tokens = input_tokens + output_tokens + cached_tokens
             
@@ -81,6 +83,7 @@ class ExportCSV:
                 provider,
                 input_tokens,
                 output_tokens,
+                reasoning_tokens if reasoning_tokens else "",
                 cached_tokens,
                 total_tokens,
                 f"{cost_usd:.6f}" if cost_usd else "",

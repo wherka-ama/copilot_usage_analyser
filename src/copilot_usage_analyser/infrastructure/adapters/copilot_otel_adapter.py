@@ -219,6 +219,7 @@ class CopilotOTelAdapter:
         out = int(attrs.get("gen_ai.usage.output_tokens", 0))
         cache_read = int(attrs.get("gen_ai.usage.cache_read.input_tokens", 0))
         cache_creation = int(attrs.get("gen_ai.usage.cache_creation.input_tokens", 0))
+        reasoning = int(attrs.get("gen_ai.usage.reasoning.output_tokens", 0))
         cost_credits = attrs.get("github.copilot.cost", 0)
         conv_id = attrs.get("gen_ai.conversation.id", "")
         turn_id = attrs.get("github.copilot.turn_id", "")
@@ -236,7 +237,7 @@ class CopilotOTelAdapter:
             timestamp=start,
             event_type=EventType.MODEL_TURN,
             summary=f"chat {model} turn={turn_id}",
-            token_usage=TokenUsage(input=inp, output=out, cached=cache_read),
+            token_usage=TokenUsage(input=inp, output=out, cached=cache_read, reasoning=reasoning),
             duration_ms=duration_ms,
             parent_event_id=self._span_to_uuid(parent_span_id) if parent_span_id else None,
             agent_name=attrs.get("gen_ai.agent.id"),

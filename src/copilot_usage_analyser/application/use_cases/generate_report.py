@@ -253,6 +253,8 @@ class GenerateReport:
         lines.append("")
         lines.append(f"- **Input Tokens:** {metrics.total_tokens_input:,}")
         lines.append(f"- **Output Tokens:** {metrics.total_tokens_output:,}")
+        if metrics.total_reasoning_tokens:
+            lines.append(f"  - **↳ Reasoning (thinking) Tokens:** {metrics.total_reasoning_tokens:,} *(subset of output, billed as output)*")
         lines.append(f"- **Cached Tokens:** {metrics.total_tokens_cached:,}")
         lines.append(f"- **Total Tokens:** {metrics.total_tokens_input + metrics.total_tokens_output + metrics.total_tokens_cached:,}")
         lines.append("")
@@ -271,9 +273,16 @@ class GenerateReport:
         if model_usage:
             lines.append("## Model Performance")
             lines.append("")
-            lines.append("| Model | Provider | Input Tokens | Output Tokens | Cached Tokens | Requests | Cost (USD) |")
-            lines.append("|-------|----------|--------------|---------------|---------------|----------|------------|")
+            has_reasoning = any(m.total_reasoning_tokens > 0 for m in model_usage)
+            if has_reasoning:
+                lines.append("| Model | Provider | Input Tokens | Output Tokens | Reasoning Tokens | Cached Tokens | Requests | Cost (USD) |")
+                lines.append("|-------|----------|--------------|---------------|------------------|---------------|----------|------------|")
+            else:
+                lines.append("| Model | Provider | Input Tokens | Output Tokens | Cached Tokens | Requests | Cost (USD) |")
+                lines.append("|-------|----------|--------------|---------------|---------------|----------|------------|")
             for m in model_usage:
+                if has_reasoning:
+                    reasoning_col = f"{m.total_reasoning_tokens:,}" if m.total_reasoning_tokens else "-"
                 # For Anthropic models, show a cost range since we can't distinguish
                 # between cached read and cached write tokens in the log data
                 if pricing_config and m.provider.lower() == "anthropic":
@@ -291,9 +300,14 @@ class GenerateReport:
                 else:
                     cost_display = f"${m.estimated_cost_usd:.4f}"
 
-                lines.append(
-                    f"| {m.model_name} | {m.provider} | {m.total_input_tokens:,} | {m.total_output_tokens:,} | {m.total_cached_tokens:,} | {m.total_requests} | {cost_display} |"
-                )
+                if has_reasoning:
+                    lines.append(
+                        f"| {m.model_name} | {m.provider} | {m.total_input_tokens:,} | {m.total_output_tokens:,} | {reasoning_col} | {m.total_cached_tokens:,} | {m.total_requests} | {cost_display} |"
+                    )
+                else:
+                    lines.append(
+                        f"| {m.model_name} | {m.provider} | {m.total_input_tokens:,} | {m.total_output_tokens:,} | {m.total_cached_tokens:,} | {m.total_requests} | {cost_display} |"
+                    )
             lines.append("")
             lines.append("*Note: Anthropic models show a cost range because log data does not distinguish between cached read and cached write tokens. Lower bound = all cached tokens are reads only. Upper bound = all cached tokens incur both read and write costs.*")
             lines.append("")

@@ -31,6 +31,7 @@ class MetricsCalculator:
         total_input = sum(e.token_usage.input for e in llm_events)
         total_output = sum(e.token_usage.output for e in llm_events)
         total_cached = sum(e.token_usage.cached for e in llm_events)
+        total_reasoning = sum(e.token_usage.reasoning for e in llm_events)
 
         return SessionMetrics(
             total_events=total_events,
@@ -41,6 +42,7 @@ class MetricsCalculator:
             total_tokens_cached=total_cached,
             errors=errors,
             sub_agents_invoked=sub_agents,
+            total_reasoning_tokens=total_reasoning,
         )
 
     def calculate_token_usage_by_model(
@@ -52,7 +54,7 @@ class MetricsCalculator:
         events have no model and zero tokens, so they are excluded to avoid
         polluting the model table with a spurious 'unknown' row.
         """
-        model_data = defaultdict(lambda: {"input": 0, "output": 0, "cached": 0, "requests": 0})
+        model_data = defaultdict(lambda: {"input": 0, "output": 0, "cached": 0, "reasoning": 0, "requests": 0})
 
         for event in events:
             if event.event_type == EventType.TOOL_CALL:
@@ -64,6 +66,7 @@ class MetricsCalculator:
             model_data[key]["input"] += event.token_usage.input
             model_data[key]["output"] += event.token_usage.output
             model_data[key]["cached"] += event.token_usage.cached
+            model_data[key]["reasoning"] += event.token_usage.reasoning
             model_data[key]["requests"] += 1
 
         # Note: Cost calculation will be done by CostCalculator
@@ -76,6 +79,7 @@ class MetricsCalculator:
                 total_cached_tokens=data["cached"],
                 total_requests=data["requests"],
                 estimated_cost_usd=0.0,  # Will be calculated by CostCalculator
+                total_reasoning_tokens=data["reasoning"],
             )
             for (model, provider), data in model_data.items()
         ]

@@ -35,6 +35,7 @@ class SessionMetrics:
     total_tokens_cached: int
     errors: int
     sub_agents_invoked: int
+    total_reasoning_tokens: int = 0
 
 
 @dataclass(frozen=True)
@@ -48,10 +49,11 @@ class ModelTokenUsage:
     total_cached_tokens: int
     total_requests: int
     estimated_cost_usd: float
+    total_reasoning_tokens: int = 0
 
     @property
     def total_tokens(self) -> int:
-        """Calculate total tokens."""
+        """Calculate total tokens (reasoning is already counted within output)."""
         return self.total_input_tokens + self.total_output_tokens + self.total_cached_tokens
 
 

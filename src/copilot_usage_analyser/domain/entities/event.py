@@ -20,15 +20,21 @@ class EventType(Enum):
 
 @dataclass(frozen=True)
 class TokenUsage:
-    """Token usage information."""
+    """Token usage information.
+
+    Note: `reasoning` is a sub-component of `output` (thinking tokens generated
+    before the visible response). It is intentionally excluded from `total` to
+    avoid double-counting — billing already covers it via output token pricing.
+    """
 
     input: int = 0
     output: int = 0
     cached: int = 0
+    reasoning: int = 0
 
     @property
     def total(self) -> int:
-        """Calculate total tokens."""
+        """Calculate total tokens (input + output + cached). Reasoning is a subset of output."""
         return self.input + self.output + self.cached
 
 
