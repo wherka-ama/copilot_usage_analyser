@@ -6,7 +6,7 @@ from rich.console import Console
 from copilot_usage_analyser.application.use_cases import AnalyzeSession, ExportCSV, GenerateReport, ReportConfig
 from copilot_usage_analyser.domain.services import CostCalculator, HotspotDetector, MetricsCalculator
 from copilot_usage_analyser.domain.value_objects import PricingConfig
-from copilot_usage_analyser.infrastructure.adapters import ChatReplayAdapter, OTLPAdapter
+from copilot_usage_analyser.infrastructure.adapters import ChatReplayAdapter, CopilotOTelAdapter, OTLPAdapter
 from copilot_usage_analyser.infrastructure.charts import ChartGenerator
 from copilot_usage_analyser.infrastructure.readers import LogFileReader
 
@@ -370,6 +370,7 @@ def batch(directory, output, plan, no_charts, csv, timeline, verbose):
     file_reader = LogFileReader()
     chatreplay_adapter = ChatReplayAdapter()
     otlp_adapter = OTLPAdapter()
+    copilot_otel_adapter = CopilotOTelAdapter()
     metrics_calculator = MetricsCalculator()
     hotspot_detector = HotspotDetector()
     chart_generator = ChartGenerator(output)
@@ -453,6 +454,11 @@ def batch(directory, output, plan, no_charts, csv, timeline, verbose):
             if format_type == "chatreplay":
                 session, events = chatreplay_adapter.adapt(log_data)
                 overhead = chatreplay_adapter.extract_overhead_data(log_data)
+                if overhead:
+                    all_overhead_stats.append(overhead)
+            elif format_type == "copilot_cli_otel":
+                session, events = copilot_otel_adapter.adapt(log_data)
+                overhead = copilot_otel_adapter.extract_overhead_data(log_data)
                 if overhead:
                     all_overhead_stats.append(overhead)
             elif format_type == "otlp":

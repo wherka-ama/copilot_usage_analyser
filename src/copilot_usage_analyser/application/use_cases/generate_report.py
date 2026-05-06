@@ -170,7 +170,12 @@ class GenerateReport:
         if context_overhead:
             lines.append("## Context Budget Breakdown")
             lines.append("")
-            lines.append("> *Estimates are based on character count ÷ 4 approximation. Actual token counts may vary slightly.*")
+            otel_limited = (context_overhead.system_prompt_tokens_est == 0
+                            and context_overhead.custom_instructions_tokens_est == 0)
+            if otel_limited:
+                lines.append("> *Source: Copilot CLI OTel export. System prompt and custom instructions data are not captured in this format — only tool definitions and LLM token counts are available.*")
+            else:
+                lines.append("> *Estimates are based on character count ÷ 4 approximation. Actual token counts may vary slightly.*")
             lines.append("")
             avg = context_overhead.avg_prompt_tokens
             sys_t = context_overhead.system_prompt_tokens_est
@@ -186,8 +191,12 @@ class GenerateReport:
 
             lines.append("| Component | Tokens (est.) | % of Avg Prompt |")
             lines.append("|-----------|--------------|-----------------|")
-            lines.append(f"| System Prompt (base) | {sys_t:,} | {pct(sys_t, avg)} |")
-            lines.append(f"| Custom Instructions | {ci_t:,} | {pct(ci_t, avg)} |")
+            if not otel_limited:
+                lines.append(f"| System Prompt (base) | {sys_t:,} | {pct(sys_t, avg)} |")
+                lines.append(f"| Custom Instructions | {ci_t:,} | {pct(ci_t, avg)} |")
+            else:
+                lines.append(f"| System Prompt (base) | *n/a* | *n/a* |")
+                lines.append(f"| Custom Instructions | *n/a* | *n/a* |")
             lines.append(f"| Tool Definitions — Built-in ({len([t for t in context_overhead.registered_tools if t.category == 'builtin'])}) | {builtin_t:,} | {pct(builtin_t, avg)} |")
             lines.append(f"| Tool Definitions — MCP ({len([t for t in context_overhead.registered_tools if t.category == 'mcp'])}) | {mcp_t:,} | {pct(mcp_t, avg)} |")
             lines.append(f"| Tool Definitions — Activators ({len([t for t in context_overhead.registered_tools if t.category == 'activator'])}) | {act_t:,} | {pct(act_t, avg)} |")
