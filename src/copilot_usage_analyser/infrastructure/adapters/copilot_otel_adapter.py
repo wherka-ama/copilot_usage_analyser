@@ -72,11 +72,11 @@ class CopilotOTelAdapter:
                     except (json.JSONDecodeError, TypeError):
                         pass
 
-            # Collect token counts from chat spans
+            # Collect token counts from chat spans (total = input + cache_read + cache_creation)
             if op == "chat":
-                inp = attrs.get("gen_ai.usage.input_tokens", 0)
+                inp = int(attrs.get("gen_ai.usage.input_tokens", 0))
                 if inp:
-                    prompt_token_counts.append(int(inp))
+                    prompt_token_counts.append(inp)
 
             # Collect invoked tools
             if op == "execute_tool":
@@ -205,12 +205,20 @@ class CopilotOTelAdapter:
         return None
 
     def _adapt_chat_span(self, span: Dict, attrs: Dict) -> Event:
-        """Map a 'chat' span to a MODEL_TURN event."""
+        """Map a 'chat' span to a MODEL_TURN event.
+
+        OTel distinguishes two cache token types:
+          - cache_read.input_tokens:    tokens served from cache (cheap/free reads)
+          - cache_creation.input_tokens: tokens written to cache (full-price writes)
+        TokenUsage.cached holds cache_read only (matches Copilot CLI "cached" display).
+        cache_creation is stored in details for accurate cost calculation.
+        """
         model = attrs.get("gen_ai.response.model") or attrs.get("gen_ai.request.model", "unknown")
         provider = self._infer_provider(model)
         inp = int(attrs.get("gen_ai.usage.input_tokens", 0))
         out = int(attrs.get("gen_ai.usage.output_tokens", 0))
-        cached = int(attrs.get("gen_ai.usage.cache_creation.input_tokens", 0))
+        cache_read = int(attrs.get("gen_ai.usage.cache_read.input_tokens", 0))
+        cache_creation = int(attrs.get("gen_ai.usage.cache_creation.input_tokens", 0))
         cost_credits = attrs.get("github.copilot.cost", 0)
         conv_id = attrs.get("gen_ai.conversation.id", "")
         turn_id = attrs.get("github.copilot.turn_id", "")
@@ -228,7 +236,7 @@ class CopilotOTelAdapter:
             timestamp=start,
             event_type=EventType.MODEL_TURN,
             summary=f"chat {model} turn={turn_id}",
-            token_usage=TokenUsage(input=inp, output=out, cached=cached),
+            token_usage=TokenUsage(input=inp, output=out, cached=cache_read),
             duration_ms=duration_ms,
             parent_event_id=self._span_to_uuid(parent_span_id) if parent_span_id else None,
             agent_name=attrs.get("gen_ai.agent.id"),
@@ -240,6 +248,7 @@ class CopilotOTelAdapter:
                 "cost_credits": cost_credits,
                 "trace_id": trace_id,
                 "finish_reasons": attrs.get("gen_ai.response.finish_reasons", []),
+                "cache_creation_tokens": cache_creation,
             },
         )
 
@@ -276,12 +285,15 @@ class CopilotOTelAdapter:
         )
 
     def _adapt_agent_span(self, span: Dict, attrs: Dict) -> Event:
-        """Map an 'invoke_agent' span to a SUB_AGENT event."""
+        """Map an 'invoke_agent' span to a SUB_AGENT event.
+
+        Token counts are intentionally zeroed here. The invoke_agent span
+        aggregates the totals from its child 'chat' spans, which are already
+        captured as individual MODEL_TURN events. Counting both would double
+        every token.
+        """
         agent_id = attrs.get("gen_ai.agent.id", "unknown")
         model = attrs.get("gen_ai.request.model", "unknown")
-        inp = int(attrs.get("gen_ai.usage.input_tokens", 0))
-        out = int(attrs.get("gen_ai.usage.output_tokens", 0))
-        cached = int(attrs.get("gen_ai.usage.cache_creation.input_tokens", 0))
         turn_count = attrs.get("github.copilot.turn_count", 1)
         cost_credits = attrs.get("github.copilot.cost", 0)
 
@@ -296,7 +308,7 @@ class CopilotOTelAdapter:
             timestamp=start,
             event_type=EventType.SUB_AGENT,
             summary=f"invoke_agent {agent_id} ({turn_count} turns)",
-            token_usage=TokenUsage(input=inp, output=out, cached=cached),
+            token_usage=TokenUsage(),
             duration_ms=duration_ms,
             parent_event_id=None,
             agent_name=agent_id,

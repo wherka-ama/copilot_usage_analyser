@@ -27,9 +27,10 @@ class MetricsCalculator:
         errors = sum(1 for e in events if e.event_type == EventType.ERROR)
         sub_agents = sum(1 for e in events if e.event_type == EventType.SUB_AGENT)
 
-        total_input = sum(e.token_usage.input for e in events)
-        total_output = sum(e.token_usage.output for e in events)
-        total_cached = sum(e.token_usage.cached for e in events)
+        llm_events = [e for e in events if e.event_type == EventType.MODEL_TURN]
+        total_input = sum(e.token_usage.input for e in llm_events)
+        total_output = sum(e.token_usage.output for e in llm_events)
+        total_cached = sum(e.token_usage.cached for e in llm_events)
 
         return SessionMetrics(
             total_events=total_events,
@@ -45,10 +46,17 @@ class MetricsCalculator:
     def calculate_token_usage_by_model(
         self, events: List[Event]
     ) -> List[ModelTokenUsage]:
-        """Group token usage by model."""
+        """Group token usage by model.
+
+        Only MODEL_TURN and SUB_AGENT events carry model/token data. TOOL_CALL
+        events have no model and zero tokens, so they are excluded to avoid
+        polluting the model table with a spurious 'unknown' row.
+        """
         model_data = defaultdict(lambda: {"input": 0, "output": 0, "cached": 0, "requests": 0})
 
         for event in events:
+            if event.event_type == EventType.TOOL_CALL:
+                continue
             model = event.details.get("model", "unknown") if event.details else "unknown"
             provider = event.details.get("provider", "unknown") if event.details else "unknown"
             key = (model, provider)
