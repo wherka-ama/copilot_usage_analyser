@@ -12,8 +12,8 @@ Thank you for your interest in contributing to Copilot Usage Analyzer!
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/copilot-usage-analyser
-cd copilot-usage-analyser
+git clone https://github.com/wherka-ama/copilot_usage_analyser
+cd copilot_usage_analyser
 ```
 
 2. Create a virtual environment:
