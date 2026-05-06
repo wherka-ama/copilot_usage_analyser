@@ -5,7 +5,7 @@ import os
 from src.copilot_usage_analyser.application.use_cases import AnalyzeSession, GenerateReport, ReportConfig
 from src.copilot_usage_analyser.domain.services import CostCalculator, HotspotDetector, MetricsCalculator
 from src.copilot_usage_analyser.domain.value_objects import PricingConfig
-from src.copilot_usage_analyser.infrastructure.adapters import ChatReplayAdapter
+from src.copilot_usage_analyser.infrastructure.adapters import ChatReplayAdapter, CopilotOTelAdapter
 from src.copilot_usage_analyser.infrastructure.charts import ChartGenerator
 from src.copilot_usage_analyser.infrastructure.readers import LogFileReader
 
@@ -47,10 +47,6 @@ def test_analyze_chatreplay_session():
 
     # Initialize components
     file_reader = LogFileReader()
-    chatreplay_adapter = ChatReplayAdapter()
-    otlp_adapter = None  # Not needed for chatreplay
-    metrics_calculator = MetricsCalculator()
-    hotspot_detector = HotspotDetector()
     pricing_config = PricingConfig(
         plan_type="business",
         included_credits_per_month=1900,
@@ -61,11 +57,11 @@ def test_analyze_chatreplay_session():
     # Create use case
     analyze_use_case = AnalyzeSession(
         file_reader=file_reader,
-        chatreplay_adapter=chatreplay_adapter,
-        otlp_adapter=otlp_adapter,
-        metrics_calculator=metrics_calculator,
+        chatreplay_adapter=ChatReplayAdapter(),
+        copilot_otel_adapter=CopilotOTelAdapter(),
+        metrics_calculator=MetricsCalculator(),
         cost_calculator=cost_calculator,
-        hotspot_detector=hotspot_detector,
+        hotspot_detector=HotspotDetector(),
     )
 
     # Execute
@@ -88,10 +84,6 @@ def test_generate_report_from_chatreplay():
 
     # Analyze session first
     file_reader = LogFileReader()
-    chatreplay_adapter = ChatReplayAdapter()
-    otlp_adapter = None
-    metrics_calculator = MetricsCalculator()
-    hotspot_detector = HotspotDetector()
     pricing_config = PricingConfig(
         plan_type="business",
         included_credits_per_month=1900,
@@ -101,11 +93,11 @@ def test_generate_report_from_chatreplay():
 
     analyze_use_case = AnalyzeSession(
         file_reader=file_reader,
-        chatreplay_adapter=chatreplay_adapter,
-        otlp_adapter=otlp_adapter,
-        metrics_calculator=metrics_calculator,
+        chatreplay_adapter=ChatReplayAdapter(),
+        copilot_otel_adapter=CopilotOTelAdapter(),
+        metrics_calculator=MetricsCalculator(),
         cost_calculator=cost_calculator,
-        hotspot_detector=hotspot_detector,
+        hotspot_detector=HotspotDetector(),
     )
 
     result = analyze_use_case.execute(fixture_path)

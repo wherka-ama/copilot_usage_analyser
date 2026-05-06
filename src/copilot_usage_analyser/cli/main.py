@@ -6,7 +6,7 @@ from rich.console import Console
 from copilot_usage_analyser.application.use_cases import AnalyzeSession, ExportCSV, GenerateReport, ReportConfig
 from copilot_usage_analyser.domain.services import CostCalculator, HotspotDetector, MetricsCalculator
 from copilot_usage_analyser.domain.value_objects import PricingConfig
-from copilot_usage_analyser.infrastructure.adapters import ChatReplayAdapter, CopilotOTelAdapter, OTLPAdapter
+from copilot_usage_analyser.infrastructure.adapters import ChatReplayAdapter, CopilotOTelAdapter
 from copilot_usage_analyser.infrastructure.charts import ChartGenerator
 from copilot_usage_analyser.infrastructure.readers import LogFileReader
 
@@ -128,7 +128,7 @@ def analyze(file, output, type, format, plan, config, no_charts, csv, timeline, 
     # Initialize components
     file_reader = LogFileReader()
     chatreplay_adapter = ChatReplayAdapter()
-    otlp_adapter = OTLPAdapter()
+    copilot_otel_adapter = CopilotOTelAdapter()
     metrics_calculator = MetricsCalculator()
     hotspot_detector = HotspotDetector()
 
@@ -199,7 +199,7 @@ def analyze(file, output, type, format, plan, config, no_charts, csv, timeline, 
     analyze_use_case = AnalyzeSession(
         file_reader=file_reader,
         chatreplay_adapter=chatreplay_adapter,
-        otlp_adapter=otlp_adapter,
+        copilot_otel_adapter=copilot_otel_adapter,
         metrics_calculator=metrics_calculator,
         cost_calculator=cost_calculator,
         hotspot_detector=hotspot_detector,

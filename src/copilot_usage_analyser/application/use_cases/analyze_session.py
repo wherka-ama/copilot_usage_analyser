@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from ...domain.entities import ContextOverheadStats, Hotspot, ModelTokenUsage, Session, SessionMetrics, ToolUsageStats
 from ...domain.services import CostCalculator, HotspotDetector, MetricsCalculator
-from ...infrastructure.adapters import ChatReplayAdapter, CopilotOTelAdapter, OTLPAdapter
+from ...infrastructure.adapters import ChatReplayAdapter, CopilotOTelAdapter
 from ...infrastructure.readers import LogFileReader
 
 
@@ -31,17 +31,15 @@ class AnalyzeSession:
         self,
         file_reader: LogFileReader,
         chatreplay_adapter: ChatReplayAdapter,
-        otlp_adapter: OTLPAdapter,
+        copilot_otel_adapter: CopilotOTelAdapter,
         metrics_calculator: MetricsCalculator,
         cost_calculator: CostCalculator,
         hotspot_detector: HotspotDetector,
-        copilot_otel_adapter: Optional[CopilotOTelAdapter] = None,
     ):
         """Initialize with dependencies."""
         self.file_reader = file_reader
         self.chatreplay_adapter = chatreplay_adapter
-        self.otlp_adapter = otlp_adapter
-        self.copilot_otel_adapter = copilot_otel_adapter or CopilotOTelAdapter()
+        self.copilot_otel_adapter = copilot_otel_adapter
         self.metrics_calculator = metrics_calculator
         self.cost_calculator = cost_calculator
         self.hotspot_detector = hotspot_detector
@@ -62,8 +60,8 @@ class AnalyzeSession:
         elif format_type == "copilot_cli_otel":
             session, events = self.copilot_otel_adapter.adapt(raw_data)
             context_overhead = self.copilot_otel_adapter.extract_overhead_data(raw_data)
-        else:  # otlp or default
-            session, events = self.otlp_adapter.adapt([raw_data])
+        else:
+            raise ValueError(f"Unsupported log format detected for '{file_path}'. Supported: chatreplay, copilot_cli_otel")
 
         # 4. Calculate metrics
         metrics = self.metrics_calculator.calculate_session_metrics(events, session)

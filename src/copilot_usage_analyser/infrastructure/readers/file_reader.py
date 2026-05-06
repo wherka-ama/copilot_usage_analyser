@@ -46,33 +46,25 @@ class LogFileReader:
     def detect_format(self, file_path: str) -> str:
         """Detect the log file format.
 
-        Returns one of: 'chatreplay', 'copilot_cli_otel', 'otlp'.
+        Returns one of: 'chatreplay', 'copilot_cli_otel'.
         """
         data = self.read_file(file_path)
 
-        # JSONL list → could be Copilot CLI OTel format
+        # JSONL list → Copilot CLI OTel format
         if isinstance(data, list):
             if data and isinstance(data[0], dict):
                 first = data[0]
-                # Copilot CLI OTel has type='span'|'metric' with gen_ai attributes
                 if first.get("type") in ("span", "metric"):
                     return "copilot_cli_otel"
-                # Generic JSONL with spans
                 if "traceId" in first or "spanId" in first:
                     return "copilot_cli_otel"
             return "copilot_cli_otel"
 
         # Dict-based formats
         if isinstance(data, dict):
-            # Check for ChatReplay format
             if "exportedAt" in data and "prompts" in data:
                 return "chatreplay"
 
-            # Check for OTLP format
-            if "resourceSpans" in data:
-                return "otlp"
-
-        # Default to chatreplay
         return "chatreplay"
 
     def read_directory(self, directory_path: str) -> Iterator[Tuple[str, Any]]:
