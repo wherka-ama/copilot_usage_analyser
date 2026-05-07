@@ -132,62 +132,98 @@ def analyze(file, output, type, format, plan, config, no_charts, csv, timeline, 
     metrics_calculator = MetricsCalculator()
     hotspot_detector = HotspotDetector()
 
-    # Load pricing config (TODO: Use YAML config loader when package data is properly configured)
+    # Load pricing config
+    from pathlib import Path
+    from ..infrastructure.config import PricingConfigLoader
     from ..domain.value_objects import ModelPricing
-    
-    pricing_config = PricingConfig(
-        plan_type=plan,
-        included_credits_per_month=1900 if plan == "business" else 5000,
-        credit_to_usd_rate=0.01,
-        model_pricing={
-            "openai": {
-                "gpt-4o-mini": ModelPricing(
-                    input_per_million=0.5,
-                    output_per_million=1.5,
-                    cached_read_per_million=0.1,
-                    cached_write_per_million=0.5,
-                ),
-                "gpt-4": ModelPricing(
-                    input_per_million=30.0,
-                    output_per_million=60.0,
-                    cached_read_per_million=0.1,
-                    cached_write_per_million=30.0,
-                ),
-                "gpt-4-turbo": ModelPricing(
-                    input_per_million=10.0,
-                    output_per_million=30.0,
-                    cached_read_per_million=0.1,
-                    cached_write_per_million=10.0,
-                ),
+
+    if config:
+        # Load from custom config file (arbitrary YAML file)
+        import yaml
+        config_path = Path(config)
+        with open(config_path, "r") as f:
+            config_data = yaml.safe_load(f)
+        
+        # Parse the config data into PricingConfig
+        plan_type = config_data.get("plan_type", "business")
+        included_credits = config_data.get("included_credits_per_month", 1900)
+        credit_rate = config_data.get("credit_to_usd_rate", 0.01)
+        
+        model_pricing_data = config_data.get("model_pricing", {})
+        model_pricing = {}
+        
+        for provider, models in model_pricing_data.items():
+            provider_pricing = {}
+            for model_name, pricing_data in models.items():
+                provider_pricing[model_name] = ModelPricing(
+                    input_per_million=pricing_data.get("input_per_million", 0.0),
+                    output_per_million=pricing_data.get("output_per_million", 0.0),
+                    cached_read_per_million=pricing_data.get("cached_read_per_million", 0.0),
+                    cached_write_per_million=pricing_data.get("cached_write_per_million", 0.0),
+                )
+            model_pricing[provider] = provider_pricing
+        
+        pricing_config = PricingConfig(
+            plan_type=plan_type,
+            included_credits_per_month=included_credits,
+            credit_to_usd_rate=credit_rate,
+            model_pricing=model_pricing,
+        )
+    else:
+        # Use default hardcoded config
+        pricing_config = PricingConfig(
+            plan_type=plan,
+            included_credits_per_month=1900 if plan == "business" else 5000,
+            credit_to_usd_rate=0.01,
+            model_pricing={
+                "openai": {
+                    "gpt-4o-mini": ModelPricing(
+                        input_per_million=0.5,
+                        output_per_million=1.5,
+                        cached_read_per_million=0.1,
+                        cached_write_per_million=0.5,
+                    ),
+                    "gpt-4": ModelPricing(
+                        input_per_million=30.0,
+                        output_per_million=60.0,
+                        cached_read_per_million=0.1,
+                        cached_write_per_million=30.0,
+                    ),
+                    "gpt-4-turbo": ModelPricing(
+                        input_per_million=10.0,
+                        output_per_million=30.0,
+                        cached_read_per_million=0.1,
+                        cached_write_per_million=10.0,
+                    ),
+                },
+                "anthropic": {
+                    "claude-opus-4.6": ModelPricing(
+                        input_per_million=5.00,
+                        output_per_million=25.00,
+                        cached_read_per_million=0.50,
+                        cached_write_per_million=6.25,
+                    ),
+                    "claude-sonnet-4.6": ModelPricing(
+                        input_per_million=3.00,
+                        output_per_million=15.00,
+                        cached_read_per_million=0.30,
+                        cached_write_per_million=3.75,
+                    ),
+                    "claude-sonnet-4": ModelPricing(
+                        input_per_million=3.00,
+                        output_per_million=15.00,
+                        cached_read_per_million=0.30,
+                        cached_write_per_million=3.75,
+                    ),
+                    "claude-3.5-sonnet": ModelPricing(
+                        input_per_million=3.00,
+                        output_per_million=15.00,
+                        cached_read_per_million=0.30,
+                        cached_write_per_million=3.75,
+                    ),
+                },
             },
-            "anthropic": {
-                "claude-opus-4.6": ModelPricing(
-                    input_per_million=5.00,
-                    output_per_million=25.00,
-                    cached_read_per_million=0.50,
-                    cached_write_per_million=6.25,
-                ),
-                "claude-sonnet-4.6": ModelPricing(
-                    input_per_million=3.00,
-                    output_per_million=15.00,
-                    cached_read_per_million=0.30,
-                    cached_write_per_million=3.75,
-                ),
-                "claude-sonnet-4": ModelPricing(
-                    input_per_million=3.00,
-                    output_per_million=15.00,
-                    cached_read_per_million=0.30,
-                    cached_write_per_million=3.75,
-                ),
-                "claude-3.5-sonnet": ModelPricing(
-                    input_per_million=3.00,
-                    output_per_million=15.00,
-                    cached_read_per_million=0.30,
-                    cached_write_per_million=3.75,
-                ),
-            },
-        },
-    )
+        )
 
     cost_calculator = CostCalculator(pricing_config)
 
@@ -330,6 +366,12 @@ def analyze(file, output, type, format, plan, config, no_charts, csv, timeline, 
     help="Plan type for pricing",
 )
 @click.option(
+    "-c",
+    "--config",
+    type=click.Path(exists=True),
+    help="Configuration file",
+)
+@click.option(
     "--no-charts",
     is_flag=True,
     help="Disable chart generation",
@@ -350,7 +392,7 @@ def analyze(file, output, type, format, plan, config, no_charts, csv, timeline, 
     is_flag=True,
     help="Verbose output",
 )
-def batch(directory, output, plan, no_charts, csv, timeline, verbose):
+def batch(directory, output, plan, config, no_charts, csv, timeline, verbose):
     """Batch analyze all log files in a directory and aggregate into a single report with deduplication."""
     console.print(f"[bold blue]Batch analyzing directory:[/bold blue] {directory}")
 
@@ -369,68 +411,103 @@ def batch(directory, output, plan, no_charts, csv, timeline, verbose):
     # Initialize components
     file_reader = LogFileReader()
     chatreplay_adapter = ChatReplayAdapter()
-    otlp_adapter = OTLPAdapter()
     copilot_otel_adapter = CopilotOTelAdapter()
     metrics_calculator = MetricsCalculator()
     hotspot_detector = HotspotDetector()
     chart_generator = ChartGenerator(output)
 
-    # Load pricing config (TODO: Use YAML config loader when package data is properly configured)
+    # Load pricing config
+    from pathlib import Path
+    from ..infrastructure.config import PricingConfigLoader
     from ..domain.value_objects import ModelPricing
-    
-    pricing_config = PricingConfig(
-        plan_type=plan,
-        included_credits_per_month=1900 if plan == "business" else 5000,
-        credit_to_usd_rate=0.01,
-        model_pricing={
-            "openai": {
-                "gpt-4o-mini": ModelPricing(
-                    input_per_million=0.5,
-                    output_per_million=1.5,
-                    cached_read_per_million=0.1,
-                    cached_write_per_million=0.5,
-                ),
-                "gpt-4": ModelPricing(
-                    input_per_million=30.0,
-                    output_per_million=60.0,
-                    cached_read_per_million=0.1,
-                    cached_write_per_million=30.0,
-                ),
-                "gpt-4-turbo": ModelPricing(
-                    input_per_million=10.0,
-                    output_per_million=30.0,
-                    cached_read_per_million=0.1,
-                    cached_write_per_million=10.0,
-                ),
+
+    if config:
+        # Load from custom config file (arbitrary YAML file)
+        import yaml
+        config_path = Path(config)
+        with open(config_path, "r") as f:
+            config_data = yaml.safe_load(f)
+        
+        # Parse the config data into PricingConfig
+        plan_type = config_data.get("plan_type", "business")
+        included_credits = config_data.get("included_credits_per_month", 1900)
+        credit_rate = config_data.get("credit_to_usd_rate", 0.01)
+        
+        model_pricing_data = config_data.get("model_pricing", {})
+        model_pricing = {}
+        
+        for provider, models in model_pricing_data.items():
+            provider_pricing = {}
+            for model_name, pricing_data in models.items():
+                provider_pricing[model_name] = ModelPricing(
+                    input_per_million=pricing_data.get("input_per_million", 0.0),
+                    output_per_million=pricing_data.get("output_per_million", 0.0),
+                    cached_read_per_million=pricing_data.get("cached_read_per_million", 0.0),
+                    cached_write_per_million=pricing_data.get("cached_write_per_million", 0.0),
+                )
+            model_pricing[provider] = provider_pricing
+        
+        pricing_config = PricingConfig(
+            plan_type=plan_type,
+            included_credits_per_month=included_credits,
+            credit_to_usd_rate=credit_rate,
+            model_pricing=model_pricing,
+        )
+    else:
+        # Use default hardcoded config
+        pricing_config = PricingConfig(
+            plan_type=plan,
+            included_credits_per_month=1900 if plan == "business" else 5000,
+            credit_to_usd_rate=0.01,
+            model_pricing={
+                "openai": {
+                    "gpt-4o-mini": ModelPricing(
+                        input_per_million=0.5,
+                        output_per_million=1.5,
+                        cached_read_per_million=0.1,
+                        cached_write_per_million=0.5,
+                    ),
+                    "gpt-4": ModelPricing(
+                        input_per_million=30.0,
+                        output_per_million=60.0,
+                        cached_read_per_million=0.1,
+                        cached_write_per_million=30.0,
+                    ),
+                    "gpt-4-turbo": ModelPricing(
+                        input_per_million=10.0,
+                        output_per_million=30.0,
+                        cached_read_per_million=0.1,
+                        cached_write_per_million=10.0,
+                    ),
+                },
+                "anthropic": {
+                    "claude-opus-4.6": ModelPricing(
+                        input_per_million=5.00,
+                        output_per_million=25.00,
+                        cached_read_per_million=0.50,
+                        cached_write_per_million=6.25,
+                    ),
+                    "claude-sonnet-4.6": ModelPricing(
+                        input_per_million=3.00,
+                        output_per_million=15.00,
+                        cached_read_per_million=0.30,
+                        cached_write_per_million=3.75,
+                    ),
+                    "claude-sonnet-4": ModelPricing(
+                        input_per_million=3.00,
+                        output_per_million=15.00,
+                        cached_read_per_million=0.30,
+                        cached_write_per_million=3.75,
+                    ),
+                    "claude-3.5-sonnet": ModelPricing(
+                        input_per_million=3.00,
+                        output_per_million=15.00,
+                        cached_read_per_million=0.30,
+                        cached_write_per_million=3.75,
+                    ),
+                },
             },
-            "anthropic": {
-                "claude-opus-4.6": ModelPricing(
-                    input_per_million=5.00,
-                    output_per_million=25.00,
-                    cached_read_per_million=0.50,
-                    cached_write_per_million=6.25,
-                ),
-                "claude-sonnet-4.6": ModelPricing(
-                    input_per_million=3.00,
-                    output_per_million=15.00,
-                    cached_read_per_million=0.30,
-                    cached_write_per_million=3.75,
-                ),
-                "claude-sonnet-4": ModelPricing(
-                    input_per_million=3.00,
-                    output_per_million=15.00,
-                    cached_read_per_million=0.30,
-                    cached_write_per_million=3.75,
-                ),
-                "claude-3.5-sonnet": ModelPricing(
-                    input_per_million=3.00,
-                    output_per_million=15.00,
-                    cached_read_per_million=0.30,
-                    cached_write_per_million=3.75,
-                ),
-            },
-        },
-    )
+        )
     
     cost_calculator = CostCalculator(pricing_config)
 

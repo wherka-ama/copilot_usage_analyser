@@ -23,6 +23,23 @@ Supports two log formats:
 
 ---
 
+## Disclaimer
+
+This tool is designed to serve two purposes:
+
+1. **Pre-June 2026 Usage Estimation**: Help GitHub Copilot users estimate their projected token usage and costs after the new billing model takes effect in June 2026. This allows you to understand your current consumption patterns and plan accordingly.
+
+2. **Optimization Insights**: Provide actionable recommendations to help you optimize your token usage, such as identifying unused MCP servers, reducing context overhead, and spotting anomalous usage patterns.
+
+**Important Notes:**
+
+- This is an **early-stage project** and may not be required if GitHub provides built-in usage metrics and guidance after June 2026.
+- Pricing models and token rates are estimates based on public information and may not reflect actual billing.
+- Use this tool as a planning aid, not as a definitive source for billing information.
+- The tool analyzes local debug logs only — it does not access GitHub's billing systems.
+
+---
+
 ## Supported Input Formats
 
 | Format | Extension | Source | Context Budget |
@@ -33,6 +50,23 @@ Supports two log formats:
 ---
 
 ## Installation
+
+### Installing uvx
+
+uvx is part of the uv package manager from Astral (the creators of Ruff). To install uv:
+
+```bash
+# On Linux/macOS
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# On Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Or with pip
+pip install uv
+```
+
+See [uv installation docs](https://docs.astral.sh/uv/getting-started/installation/) for more options.
 
 ### Quick Run (No Installation) with uvx
 ```bash
@@ -112,6 +146,50 @@ cua batch /path/to/logs/ -o aggregated_report/
 # Batch with CSV and timeline
 cua batch --csv --timeline /path/to/logs/ -o aggregated_report/
 ```
+
+---
+
+## Configuration
+
+You can customize pricing and plan settings using a YAML configuration file:
+
+```bash
+cua analyze --config example_config.yaml session.chatreplay.json
+cua batch --config example_config.yaml /path/to/logs/
+```
+
+An example configuration file is provided in the repository root as `example_config.yaml`. This allows you to:
+
+- Set custom credit limits per plan
+- Adjust model pricing (input/output/cached token rates)
+- Add new model providers or models
+- Override the default USD-to-credit conversion rate
+
+**Example configuration:**
+
+```yaml
+plan_type: business
+included_credits_per_month: 1900
+credit_to_usd_rate: 0.01
+
+model_pricing:
+  openai:
+    gpt-4o-mini:
+      input_per_million: 0.5
+      output_per_million: 1.5
+      cached_read_per_million: 0.1
+      cached_write_per_million: 0.5
+    gpt-4:
+      input_per_million: 30.0
+      output_per_million: 60.0
+      cached_read_per_million: 0.1
+      cached_write_per_million: 30.0
+  # ... additional providers and models
+```
+
+The configuration file parameters directly affect cost calculations in the generated reports. All pricing values are per 1 million tokens (except where noted).
+
+---
 
 ---
 
@@ -394,4 +472,4 @@ MIT License — see [LICENSE](LICENSE) for details.
 ## Acknowledgments
 
 - GitHub Copilot team for the Agent Debug Log and OTel monitoring features
-- OpenTelemetry GenAI Semantic Conventions
+- [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/gen-ai/)
