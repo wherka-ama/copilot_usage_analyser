@@ -149,6 +149,7 @@ Thumbs.db
 *.jsonl
 *.json
 !config/**/*.json
+!config.schema.json
 !tests/fixtures/**/*.json
 !tests/fixtures/**/*.jsonl
 reports/

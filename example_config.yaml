@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Amadeus-xDLC/github.copilot-usage-analyser/refs/heads/main/config.schema.json
 # Example configuration file for Copilot Usage Analyzer
 # Usage: cua analyze --config example_config.yaml <log-file>
 #        cua batch --config example_config.yaml <directory>

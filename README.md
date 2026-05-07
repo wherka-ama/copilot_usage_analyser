@@ -168,6 +168,7 @@ An example configuration file is provided in the repository root as `example_con
 **Example configuration:**
 
 ```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/wherka-ama/copilot_usage_analyser/refs/heads/main/config.schema.json
 plan_type: business
 included_credits_per_month: 1900
 credit_to_usd_rate: 0.01
@@ -186,6 +187,31 @@ model_pricing:
       cached_write_per_million: 30.0
   # ... additional providers and models
 ```
+
+### IDE Schema Validation
+
+For automatic validation in VSCode and other IDEs with YAML Language Server support, add this comment at the top of your config file:
+
+**Remote schema (recommended - works even without local files):**
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/wherka-ama/copilot_usage_analyser/refs/heads/main/config.schema.json
+```
+
+**Local schema (for development):**
+```yaml
+# yaml-language-server: $schema=./config.schema.json
+```
+
+This enables:
+- Real-time schema validation as you type
+- Autocomplete for model provider and model names
+- Error highlighting for invalid values or missing required fields
+- Inline documentation for each field
+
+**VSCode setup:**
+1. Install the [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml)
+2. Add the schema comment to your config file
+3. The extension will automatically validate against the schema (remote or local)
 
 ### Schema Validation
 
@@ -497,4 +523,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 ## Acknowledgments
 
 - GitHub Copilot team for the Agent Debug Log and OTel monitoring features
-- [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/gen-ai/)
+- [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+
