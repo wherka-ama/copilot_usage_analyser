@@ -34,15 +34,31 @@ Supports two log formats:
 
 ## Installation
 
+### Quick Run (No Installation) with uvx
+```bash
+uvx --from git+https://github.com/wherka-ama/copilot_usage_analyser cua analyze <log-file>
+```
+
+Or from a local clone:
+```bash
+git clone https://github.com/wherka-ama/copilot_usage_analyser.git
+cd copilot_usage_analyser
+uvx --from . cua analyze <log-file>
+```
+
 ### From Source
 ```bash
-git clone https://github.com/Amadeus-xDLC/github.copilot-usage-analyser.git
-cd github.copilot-usage-analyser
+git clone https://github.com/wherka-ama/copilot_usage_analyser.git
+cd copilot_usage_analyser
 pip install -e .
 ```
 
 ### Development Installation
 ```bash
+# Using uv (recommended for faster setup)
+uv sync
+
+# Or using pip
 pip install -e ".[dev]"
 ```
 

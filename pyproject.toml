@@ -64,7 +64,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 copilot_usage_analyser = ["config/**/*.yaml"]
 
-include_package_data = true
+include_package_data = []
 
 [tool.black]
 line-length = 100

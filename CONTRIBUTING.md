@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Copilot Usage Analyzer!
 
 ### Prerequisites
 - Python 3.9 or higher
-- pip or poetry
+- uv (recommended) or pip
 
 ### Installation
 
@@ -16,14 +16,15 @@ git clone https://github.com/wherka-ama/copilot_usage_analyser
 cd copilot_usage_analyser
 ```
 
-2. Create a virtual environment:
+2. Install dependencies with uv (recommended, much faster):
+```bash
+uv sync
+```
+
+Or with pip:
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install development dependencies:
-```bash
 pip install -e ".[dev]"
 ```
 
