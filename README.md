@@ -34,7 +34,7 @@ This tool is designed to serve two purposes:
 **Important Notes:**
 
 - This is an **early-stage project** and may not be required if GitHub provides built-in usage metrics and guidance after June 2026.
-- Pricing models and token rates are estimates based on public information and may not reflect actual billing.
+- Pricing models and token rates are estimates based on [public information](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing) and may not reflect actual billing.
 - Use this tool as a planning aid, not as a definitive source for billing information.
 - The tool analyzes local debug logs only — it does not access GitHub's billing systems.
 
@@ -185,6 +185,31 @@ model_pricing:
       cached_read_per_million: 0.1
       cached_write_per_million: 30.0
   # ... additional providers and models
+```
+
+### Schema Validation
+
+A JSON schema is provided at `config.schema.json` to validate your configuration files. This ensures:
+
+- Correct syntax and structure
+- Valid model provider names (lowercase, alphanumeric with hyphens/underscores)
+- Valid model names (lowercase, alphanumeric with dots/hyphens/underscores)
+- Required pricing fields are present
+- Numeric values are non-negative
+
+**Validate your config file:**
+
+```bash
+# Using yamllint with schema validation
+yamllint -d "{extends: default, rules: {truthy: {allowed-values: [true, false]}}}" example_config.yaml
+
+# Using a JSON schema validator (requires `check-jsonschema`)
+pip install check-jsonschema
+check-jsonschema --schemafile config.schema.json example_config.yaml
+
+# Using Python (requires `jsonschema`)
+pip install jsonschema pyyaml
+python -c "from jsonschema import validate; from yaml import safe_load; import json; schema = json.load(open('config.schema.json')); config = safe_load(open('example_config.yaml')); validate(instance=config, schema=schema)"
 ```
 
 The configuration file parameters directly affect cost calculations in the generated reports. All pricing values are per 1 million tokens (except where noted).
