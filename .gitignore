@@ -152,7 +152,7 @@ Thumbs.db
 !tests/fixtures/**/*.json
 !tests/fixtures/**/*.jsonl
 reports/
-charts/
+/charts/  # Only ignore charts/ at root (generated reports), not src/copilot_usage_analyser/infrastructure/charts/
 report_*/
 report.md
 promp1-*.md
