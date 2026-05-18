@@ -17,6 +17,7 @@ class CostCalculator:
         """Calculate cost for a single event."""
         model = event.details.get("model", "gpt-4") if event.details else "gpt-4"
         provider = event.details.get("provider", "openai") if event.details else "openai"
+        auto_discount = event.details.get("auto_discount", False) if event.details else False
 
         model_pricing = self._get_model_pricing(provider, model)
         if not model_pricing:
@@ -54,7 +55,13 @@ class CostCalculator:
                 (event.token_usage.cached / 1_000_000) * model_pricing.cached_read_per_million
             )
 
-        return input_cost + output_cost + cached_cost
+        total_cost = input_cost + output_cost + cached_cost
+        
+        # Apply 10% discount if auto_discount flag is present
+        if auto_discount:
+            total_cost = total_cost * 0.9  # 10% discount
+        
+        return total_cost
 
     def calculate_session_cost(self, events: List[Event]) -> float:
         """Calculate total cost for a session."""

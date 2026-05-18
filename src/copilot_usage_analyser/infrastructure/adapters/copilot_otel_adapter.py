@@ -212,8 +212,29 @@ class CopilotOTelAdapter:
           - cache_creation.input_tokens: tokens written to cache (full-price writes)
         TokenUsage.cached holds cache_read only (matches Copilot CLI "cached" display).
         cache_creation is stored in details for accurate cost calculation.
+        
+        The 'auto' model indicates a 10% discount. When 'auto' is present in the request model,
+        the actual model used is in the response model. We store the discount flag for cost calculation.
         """
-        model = attrs.get("gen_ai.response.model") or attrs.get("gen_ai.request.model", "unknown")
+        request_model = attrs.get("gen_ai.request.model", "")
+        response_model = attrs.get("gen_ai.response.model", "")
+        
+        # Handle 'auto' discount flag: if request is 'auto', use response model for actual model
+        auto_discount = False
+        if request_model == "auto" or response_model == "auto":
+            auto_discount = True
+            # Use the non-auto model as the actual model
+            if request_model == "auto" and response_model and response_model != "auto":
+                model = response_model
+            elif response_model == "auto" and request_model and request_model != "auto":
+                model = request_model
+            else:
+                # Fallback: if both are auto or both are the same, use response model
+                model = response_model or request_model or "unknown"
+        else:
+            # No auto flag, use response model first, then request model
+            model = response_model or request_model or "unknown"
+        
         provider = self._infer_provider(model)
         inp = int(attrs.get("gen_ai.usage.input_tokens", 0))
         out = int(attrs.get("gen_ai.usage.output_tokens", 0))
@@ -250,6 +271,7 @@ class CopilotOTelAdapter:
                 "trace_id": trace_id,
                 "finish_reasons": attrs.get("gen_ai.response.finish_reasons", []),
                 "cache_creation_tokens": cache_creation,
+                "auto_discount": auto_discount,
             },
         )
 
@@ -288,13 +310,33 @@ class CopilotOTelAdapter:
     def _adapt_agent_span(self, span: Dict, attrs: Dict) -> Event:
         """Map an 'invoke_agent' span to a SUB_AGENT event.
 
-        Token counts are intentionally zeroed here. The invoke_agent span
-        aggregates the totals from its child 'chat' spans, which are already
-        captured as individual MODEL_TURN events. Counting both would double
-        every token.
+        In some log formats (e.g., Copilot CLI OTel), the invoke_agent span
+        contains aggregated token usage data when there are no child 'chat' spans.
+        We include the token usage when present to ensure cost calculation works.
+        
+        The 'auto' model indicates a 10% discount. We store the discount flag
+        for cost calculation.
         """
         agent_id = attrs.get("gen_ai.agent.id", "unknown")
-        model = attrs.get("gen_ai.request.model", "unknown")
+        request_model = attrs.get("gen_ai.request.model", "")
+        response_model = attrs.get("gen_ai.response.model", "")
+        
+        # Handle 'auto' discount flag
+        auto_discount = False
+        if request_model == "auto" or response_model == "auto":
+            auto_discount = True
+            # Use the non-auto model as the actual model, or default to a reasonable default
+            if request_model == "auto" and response_model and response_model != "auto":
+                model = response_model
+            elif response_model == "auto" and request_model and request_model != "auto":
+                model = request_model
+            else:
+                # Fallback: if both are auto or missing, use a default model
+                # "auto" is a discount flag, not a real model, so we default to gpt-4o-mini
+                model = "gpt-4o-mini"
+        else:
+            model = request_model or "unknown"
+        
         turn_count = attrs.get("github.copilot.turn_count", 1)
         cost_credits = attrs.get("github.copilot.cost", 0)
 
@@ -304,12 +346,21 @@ class CopilotOTelAdapter:
 
         span_id = span.get("spanId", "")
 
+        # Extract token usage if present (some formats aggregate tokens in invoke_agent)
+        inp = int(attrs.get("gen_ai.usage.input_tokens", 0))
+        out = int(attrs.get("gen_ai.usage.output_tokens", 0))
+        cache_read = int(attrs.get("gen_ai.usage.cache_read.input_tokens", 0))
+        reasoning = int(attrs.get("gen_ai.usage.reasoning.output_tokens", 0))
+        
+        # Use token usage if present (non-zero), otherwise zero
+        token_usage = TokenUsage(input=inp, output=out, cached=cache_read, reasoning=reasoning) if inp > 0 or out > 0 else TokenUsage()
+
         return Event(
             event_id=self._span_to_uuid(span_id or str(uuid4())),
             timestamp=start,
             event_type=EventType.SUB_AGENT,
             summary=f"invoke_agent {agent_id} ({turn_count} turns)",
-            token_usage=TokenUsage(),
+            token_usage=token_usage,
             duration_ms=duration_ms,
             parent_event_id=None,
             agent_name=agent_id,
@@ -319,6 +370,7 @@ class CopilotOTelAdapter:
                 "agent_id": agent_id,
                 "turn_count": turn_count,
                 "cost_credits": cost_credits,
+                "auto_discount": auto_discount,
             },
         )
 

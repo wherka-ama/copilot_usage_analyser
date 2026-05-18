@@ -177,23 +177,59 @@ def analyze(file, output, type, format, plan, config, no_charts, csv, timeline, 
             credit_to_usd_rate=0.01,
             model_pricing={
                 "openai": {
-                    "gpt-4o-mini": ModelPricing(
-                        input_per_million=0.5,
-                        output_per_million=1.5,
-                        cached_read_per_million=0.1,
-                        cached_write_per_million=0.5,
+                    "gpt-4.1": ModelPricing(
+                        input_per_million=2.0,
+                        output_per_million=8.0,
+                        cached_read_per_million=0.5,
+                        cached_write_per_million=2.0,
                     ),
-                    "gpt-4": ModelPricing(
-                        input_per_million=30.0,
-                        output_per_million=60.0,
-                        cached_read_per_million=0.1,
-                        cached_write_per_million=30.0,
+                    "gpt-5-mini": ModelPricing(
+                        input_per_million=0.25,
+                        output_per_million=2.0,
+                        cached_read_per_million=0.025,
+                        cached_write_per_million=0.25,
                     ),
-                    "gpt-4-turbo": ModelPricing(
-                        input_per_million=10.0,
+                    "gpt-5.2": ModelPricing(
+                        input_per_million=1.75,
+                        output_per_million=14.0,
+                        cached_read_per_million=0.175,
+                        cached_write_per_million=1.75,
+                    ),
+                    "gpt-5.2-codex": ModelPricing(
+                        input_per_million=1.75,
+                        output_per_million=14.0,
+                        cached_read_per_million=0.175,
+                        cached_write_per_million=1.75,
+                    ),
+                    "gpt-5.3-codex": ModelPricing(
+                        input_per_million=1.75,
+                        output_per_million=14.0,
+                        cached_read_per_million=0.175,
+                        cached_write_per_million=1.75,
+                    ),
+                    "gpt-5.4": ModelPricing(
+                        input_per_million=2.5,
+                        output_per_million=15.0,
+                        cached_read_per_million=0.25,
+                        cached_write_per_million=2.5,
+                    ),
+                    "gpt-5.4-mini": ModelPricing(
+                        input_per_million=0.75,
+                        output_per_million=4.5,
+                        cached_read_per_million=0.075,
+                        cached_write_per_million=0.75,
+                    ),
+                    "gpt-5.4-nano": ModelPricing(
+                        input_per_million=0.20,
+                        output_per_million=1.25,
+                        cached_read_per_million=0.02,
+                        cached_write_per_million=0.20,
+                    ),
+                    "gpt-5.5": ModelPricing(
+                        input_per_million=5.0,
                         output_per_million=30.0,
-                        cached_read_per_million=0.1,
-                        cached_write_per_million=10.0,
+                        cached_read_per_million=0.5,
+                        cached_write_per_million=5.0,
                     ),
                 },
                 "anthropic": {
@@ -220,6 +256,26 @@ def analyze(file, output, type, format, plan, config, no_charts, csv, timeline, 
                         output_per_million=15.00,
                         cached_read_per_million=0.30,
                         cached_write_per_million=3.75,
+                    ),
+                },
+                "google": {
+                    "gemini-2.5-pro": ModelPricing(
+                        input_per_million=1.25,
+                        output_per_million=10.0,
+                        cached_read_per_million=0.125,
+                        cached_write_per_million=1.25,
+                    ),
+                    "gemini-3.1-pro": ModelPricing(
+                        input_per_million=2.0,
+                        output_per_million=12.0,
+                        cached_read_per_million=0.20,
+                        cached_write_per_million=2.0,
+                    ),
+                    "gemini-3-flash": ModelPricing(
+                        input_per_million=0.50,
+                        output_per_million=3.0,
+                        cached_read_per_million=0.05,
+                        cached_write_per_million=0.50,
                     ),
                 },
             },
@@ -461,23 +517,59 @@ def batch(directory, output, plan, config, no_charts, csv, timeline, verbose):
             credit_to_usd_rate=0.01,
             model_pricing={
                 "openai": {
-                    "gpt-4o-mini": ModelPricing(
-                        input_per_million=0.5,
-                        output_per_million=1.5,
-                        cached_read_per_million=0.1,
-                        cached_write_per_million=0.5,
+                    "gpt-4.1": ModelPricing(
+                        input_per_million=2.0,
+                        output_per_million=8.0,
+                        cached_read_per_million=0.5,
+                        cached_write_per_million=2.0,
                     ),
-                    "gpt-4": ModelPricing(
-                        input_per_million=30.0,
-                        output_per_million=60.0,
-                        cached_read_per_million=0.1,
-                        cached_write_per_million=30.0,
+                    "gpt-5-mini": ModelPricing(
+                        input_per_million=0.25,
+                        output_per_million=2.0,
+                        cached_read_per_million=0.025,
+                        cached_write_per_million=0.25,
                     ),
-                    "gpt-4-turbo": ModelPricing(
-                        input_per_million=10.0,
+                    "gpt-5.2": ModelPricing(
+                        input_per_million=1.75,
+                        output_per_million=14.0,
+                        cached_read_per_million=0.175,
+                        cached_write_per_million=1.75,
+                    ),
+                    "gpt-5.2-codex": ModelPricing(
+                        input_per_million=1.75,
+                        output_per_million=14.0,
+                        cached_read_per_million=0.175,
+                        cached_write_per_million=1.75,
+                    ),
+                    "gpt-5.3-codex": ModelPricing(
+                        input_per_million=1.75,
+                        output_per_million=14.0,
+                        cached_read_per_million=0.175,
+                        cached_write_per_million=1.75,
+                    ),
+                    "gpt-5.4": ModelPricing(
+                        input_per_million=2.5,
+                        output_per_million=15.0,
+                        cached_read_per_million=0.25,
+                        cached_write_per_million=2.5,
+                    ),
+                    "gpt-5.4-mini": ModelPricing(
+                        input_per_million=0.75,
+                        output_per_million=4.5,
+                        cached_read_per_million=0.075,
+                        cached_write_per_million=0.75,
+                    ),
+                    "gpt-5.4-nano": ModelPricing(
+                        input_per_million=0.20,
+                        output_per_million=1.25,
+                        cached_read_per_million=0.02,
+                        cached_write_per_million=0.20,
+                    ),
+                    "gpt-5.5": ModelPricing(
+                        input_per_million=5.0,
                         output_per_million=30.0,
-                        cached_read_per_million=0.1,
-                        cached_write_per_million=10.0,
+                        cached_read_per_million=0.5,
+                        cached_write_per_million=5.0,
                     ),
                 },
                 "anthropic": {
@@ -504,6 +596,26 @@ def batch(directory, output, plan, config, no_charts, csv, timeline, verbose):
                         output_per_million=15.00,
                         cached_read_per_million=0.30,
                         cached_write_per_million=3.75,
+                    ),
+                },
+                "google": {
+                    "gemini-2.5-pro": ModelPricing(
+                        input_per_million=1.25,
+                        output_per_million=10.0,
+                        cached_read_per_million=0.125,
+                        cached_write_per_million=1.25,
+                    ),
+                    "gemini-3.1-pro": ModelPricing(
+                        input_per_million=2.0,
+                        output_per_million=12.0,
+                        cached_read_per_million=0.20,
+                        cached_write_per_million=2.0,
+                    ),
+                    "gemini-3-flash": ModelPricing(
+                        input_per_million=0.50,
+                        output_per_million=3.0,
+                        cached_read_per_million=0.05,
+                        cached_write_per_million=0.50,
                     ),
                 },
             },
